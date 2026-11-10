@@ -15,6 +15,7 @@ urlpatterns = [
     path('porchfestpeeps/', admin.site.urls),
     path('api/porches/', include('porches.api.urls')),
     path('api/plan-your-day/', include('planyourday.api.urls')),
+    path('api/mobile/', include('mobile.api.urls')),
     path(
         "password-reset/",
         auth_views.PasswordResetView.as_view(),
