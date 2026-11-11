@@ -67,7 +67,16 @@ class SnapshotTests(TestCase):
             start_time=time(14, 0), end_time=time(14, 45),
         )
 
-        Sponsor.objects.create(name="Tower Yoga", logo="sponsors/logos/yoga.jpg", porch=cls.porch, level=2)
+        cls.yoga = Sponsor.objects.create(
+            name="Tower Yoga", logo="sponsors/logos/yoga.jpg", porch=cls.porch, level=2,
+            website="https://example.com/yoga",
+        )
+        # No porch at all, and a porch that is not in the snapshot.
+        cls.radio = Sponsor.objects.create(name="Valley Radio", logo="sponsors/logos/radio.jpg", level=0)
+        cls.pending_sponsor = Sponsor.objects.create(
+            name="Pending Cafe", logo="sponsors/logos/cafe.jpg", porch=cls.unapproved, level=4,
+        )
+        Sponsor.objects.create(name="Lapsed Sponsor", logo="sponsors/logos/lapsed.jpg", level=1, is_active=False)
 
     def test_shape(self):
         response = self.client.get(URL)
@@ -114,10 +123,27 @@ class SnapshotTests(TestCase):
         self.assertNotIn("No Pin Porch", body)
         self.assertNotIn("Unscheduled", body)
 
+    def test_sponsors_lists_every_active_sponsor_by_level(self):
+        sponsors = self.client.get(URL).json()["sponsors"]
+
+        self.assertEqual([s["name"] for s in sponsors], ["Valley Radio", "Tower Yoga", "Pending Cafe"])
+        self.assertEqual(sponsors[1], {
+            "id":       self.yoga.id,
+            "name":     "Tower Yoga",
+            "level":    2,
+            "website":  "https://example.com/yoga",
+            "logo_url": "http://testserver/media/sponsors/logos/yoga.jpg",
+            "porch_id": str(self.porch.id),
+        })
+        # No porch, and a porch that is left out of the snapshot, both give a null porch_id.
+        self.assertIsNone(sponsors[0]["porch_id"])
+        self.assertIsNone(sponsors[2]["porch_id"])
+
     def test_inactive_sponsor_is_omitted(self):
         Sponsor.objects.update(is_active=False)
-        [porch] = self.client.get(URL).json()["porches"]
-        self.assertIsNone(porch["sponsor"])
+        data = self.client.get(URL).json()
+        self.assertIsNone(data["porches"][0]["sponsor"])
+        self.assertEqual(data["sponsors"], [])
 
     def test_etag_round_trip(self):
         first = self.client.get(URL)
@@ -140,5 +166,5 @@ class SnapshotTests(TestCase):
         self.assertNotEqual(changed["ETag"], etag)
 
     def test_query_count_does_not_grow_with_rows(self):
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(6):
             self.client.get(URL)

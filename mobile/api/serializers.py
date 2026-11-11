@@ -1,6 +1,7 @@
 from rest_framework     import serializers
 from performers.models  import Genre, Performer
 from porches.models     import Performance, Porch
+from website.models     import Sponsor
 
 # Serializers for the mobile snapshot. Every field is listed explicitly so
 # private data (owner and performer contact details) can never leak by default.
@@ -94,3 +95,22 @@ class PerformanceSerializer(serializers.ModelSerializer):
     class Meta:
         model   = Performance
         fields  = ("id", "porch_id", "performer_id", "start_time", "end_time")
+
+
+class SponsorSerializer(serializers.ModelSerializer):
+    logo_url    = serializers.SerializerMethodField()
+    porch_id    = serializers.SerializerMethodField()
+
+    class Meta:
+        model   = Sponsor
+        fields  = ("id", "name", "level", "website", "logo_url", "porch_id")
+
+    def get_logo_url(self, obj):
+        return absolute_media_url(self, obj.logo)
+
+    def get_porch_id(self, obj):
+        # Only point at porches that are in this snapshot, so clients never hold a dangling id.
+        porch = obj.porch
+        if porch is None or not porch.approved or porch.coordinates is None:
+            return None
+        return str(porch.id)

@@ -8,11 +8,13 @@ from rest_framework.views           import APIView
 
 from performers.models              import Genre, Performer
 from porches.models                 import Performance, Porch
+from website.models                 import Sponsor
 from .serializers                   import (
     GenreSerializer,
     PerformanceSerializer,
     PerformerSerializer,
     PorchSerializer,
+    SponsorSerializer,
 )
 
 # Bump when the response shape changes in a way old app versions can't read.
@@ -22,10 +24,11 @@ SCHEMA_VERSION = 1
 class Snapshot(APIView):
     """
     Everything the mobile apps need to browse the festival offline, in one
-    response: genres, performers, porches and performances.
+    response: genres, performers, porches, performances and sponsors.
 
     Only approved porches that have coordinates are included, along with the
-    performances at those porches and the performers who play them.
+    performances at those porches and the performers who play them. Every
+    active sponsor is listed, whether or not it is attached to a porch.
 
     The response carries an ETag derived from its content. Clients send it back
     as If-None-Match and get an empty 304 when nothing has changed.
@@ -69,6 +72,12 @@ class Snapshot(APIView):
             .order_by("name", "id")
         )
         genres = Genre.objects.order_by("name", "id")
+        sponsors = (
+            Sponsor.objects
+            .filter(is_active=True)
+            .select_related("porch")
+            .order_by("level", "name", "id")
+        )
 
         return {
             "schema_version":   SCHEMA_VERSION,
@@ -76,4 +85,5 @@ class Snapshot(APIView):
             "performers":       PerformerSerializer(performers, many=True, context=context).data,
             "porches":          PorchSerializer(porches, many=True, context=context).data,
             "performances":     PerformanceSerializer(performances, many=True).data,
+            "sponsors":         SponsorSerializer(sponsors, many=True, context=context).data,
         }
