@@ -132,8 +132,8 @@ DATABASES = {
 		'NAME': 		config('POSTGRES_DB'),
 		'USER': 		config('POSTGRES_USER'),
 		'PASSWORD': 	config('POSTGRES_PASSWORD'),
-		'HOST': 		'localhost',
-		'PORT': 		'5432',
+		'HOST': 		config('POSTGRES_HOST', default='localhost'),
+		'PORT': 		config('POSTGRES_PORT', default='5432'),
 	}
 }
 
